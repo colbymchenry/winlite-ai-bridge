@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- WinLite AI Bridge (MIT): the open part of Windows Lite's look that finds the AI command-line
+       tools, runs their own sign-ins in a pseudoconsole, and holds a conversation with each over its
+       own protocol. The closed app starts it and talks to it over JSON-RPC on standard input and
+       output. It targets .NET Framework 4.8, which every Windows 11 has, so nothing extra ships. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>WinLiteBridge</AssemblyName>
+    <RootNamespace>WinLiteBridge</RootNamespace>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Version>0.1.0</Version>
+    <Product>WinLite AI Bridge</Product>
+    <Copyright>Copyright (c) 2026 Colby McHenry (MIT)</Copyright>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!-- System.Text.Json for the protocol; MIT, Microsoft. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+</Project>
