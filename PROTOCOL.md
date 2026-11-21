@@ -25,7 +25,19 @@ The AI command-line tools the bridge finds on the PC, each with whether it is in
 Signed-in status is read by asking the tool itself (or, for a tool with no such command, only whether
 its own sign-in file is present).
 
-Reply: `{"tools":[{"id":"claude-code","name":"Claude Code","maker":"Anthropic","protocol":"Claude","installed":true,"signedIn":"Yes","who":"","note":""}, ...]}`
+Reply: `{"tools":[{...}, ...]}`, each tool an object with:
+
+- `id`, `name`, `maker`, `accounts`, `protocol` (`Claude`, `Codex` or `Acp`) — the tool.
+- `installed` (bool), `signedIn` (`Yes`, `No` or `Unknown`), `who`, `note` — its state now.
+- `destination` — where the person's words go, in words.
+- `installPage`, `wingetId` — how a missing one is got (`wingetId` empty where it has no winget package).
+- `limits` — what the tool cannot do in a conversation here, in words.
+- `signInNote`, `hasSignIn` (bool), `hasDevice` (bool) — its sign-in: a note, whether it has one, and
+  whether it has a device-code sign-in too.
+- `deviceCode`, `devicePage` — regular-expression shapes of the device code and the page to enter it
+  on, so the caller can copy the code from the tool's screen; empty where it has no device sign-in.
+
+The caller needs no catalogue of its own: everything the AI page shows is here.
 
 ## tools/signin
 
@@ -40,8 +52,21 @@ Reply: `{"started":true,"note":"..."}`. While it runs:
 
 - **terminal/output (bridge → caller)** — `{"text":"..."}` — what the sign-in's screen printed.
 - **terminal/input** — `{"text":"..."}` — keystrokes to send to it (VT sequences for keys).
+- **terminal/resize** — `{"columns":100,"rows":30}` — the console was resized.
 - **terminal/exited (bridge → caller)** — `{"code":0}` — the sign-in ended.
 - **terminal/stop** — end the sign-in now.
+
+## tools/install
+
+A missing tool's install through winget, in a pseudoconsole like a sign-in: winget runs unmodified
+and the person answers its questions. The relay is the same (terminal/output, terminal/input,
+terminal/resize, terminal/exited, terminal/stop).
+
+```json
+{"jsonrpc":"2.0","id":3,"method":"tools/install","params":{"toolId":"codex","columns":100,"rows":30}}
+```
+
+Reply: `{"started":true,"note":"..."}`, or an error where the tool has no winget package.
 
 ## session/new
 

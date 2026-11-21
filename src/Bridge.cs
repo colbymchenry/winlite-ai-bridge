@@ -58,7 +58,9 @@ namespace WinLiteBridge
                 case "initialize": Reply(id, Initialize(p)); break;
                 case "tools/list": Reply(id, ToolsList()); break;
                 case "tools/signin": SignIn(id, p); break;
+                case "tools/install": Install(id, p); break;
                 case "terminal/input": TerminalInput(p); Reply(id, new JsonObject()); break;
+                case "terminal/resize": TerminalResize(p); Reply(id, new JsonObject()); break;
                 case "terminal/stop": StopSignIn(); Reply(id, new JsonObject()); break;
                 case "session/new": NewSession(id, p); break;
                 case "session/prompt": Prompt(id, p); break;
@@ -112,6 +114,18 @@ namespace WinLiteBridge
                     ["signedIn"] = state.SignedIn.ToString(),
                     ["who"] = state.Who ?? "",
                     ["note"] = state.Said ?? "",
+                    // The caller's display needs these too (they describe the tool, not the look), so
+                    // the caller holds no catalogue of its own: where it goes, how it is installed, its
+                    // limits in a conversation, and the shapes of its own device sign-in.
+                    ["destination"] = AiTools.DestinationOf(tool),
+                    ["installPage"] = tool.InstallPage ?? "",
+                    ["wingetId"] = tool.WingetId ?? "",
+                    ["limits"] = tool.Limits ?? "",
+                    ["signInNote"] = tool.SignInNote ?? "",
+                    ["hasSignIn"] = tool.SignInArguments != null,
+                    ["hasDevice"] = tool.DeviceArguments != null && tool.DeviceArguments.Length > 0,
+                    ["deviceCode"] = tool.DeviceCode != null ? tool.DeviceCode.ToString() : "",
+                    ["devicePage"] = tool.DevicePage != null ? tool.DevicePage.ToString() : "",
                 });
             }
             return new JsonObject { ["tools"] = tools };
@@ -144,6 +158,33 @@ namespace WinLiteBridge
         {
             PseudoConsole console = signin;
             if (console != null) { console.Write(Str(p, "text")); }
+        }
+
+        private static void TerminalResize(JsonObject p)
+        {
+            PseudoConsole console = signin;
+            if (console != null) { console.Resize((int)Num(p, "columns", 100), (int)Num(p, "rows", 30)); }
+        }
+
+        // A missing tool's install through winget, in a pseudoconsole like a sign-in: winget runs
+        // unmodified and the person answers its questions. The relay is the same (terminal/output,
+        // terminal/input, terminal/exited, terminal/stop).
+        private static void Install(JsonNode id, JsonObject p)
+        {
+            StopSignIn();
+            AiTool tool = AiTools.Get(Str(p, "toolId"));
+            if (tool == null) { ReplyError(id, 1, "No such tool."); return; }
+            if (string.IsNullOrEmpty(tool.WingetId)) { ReplyError(id, 2, tool.Name + " has no winget package."); return; }
+            string command = AiTools.InstallCommand(tool);
+            int columns = (int)Num(p, "columns", 100);
+            int rows = (int)Num(p, "rows", 30);
+            var console = new PseudoConsole();
+            console.Output += text => Notify("terminal/output", new JsonObject { ["text"] = text });
+            console.Exited += code => Notify("terminal/exited", new JsonObject { ["code"] = code });
+            try { console.Start(command, Paths.Base, columns, rows); }
+            catch (Exception ex) { ReplyError(id, 4, "Could not start the install: " + ex.Message); return; }
+            signin = console;
+            Reply(id, new JsonObject { ["started"] = true, ["note"] = "" });
         }
 
         private static void StopSignIn()
@@ -249,7 +290,8 @@ namespace WinLiteBridge
             }
         }
 
-        // ---- the self-test (offline): the extracted open part lists the tools it finds ----
+        // ---- the self-test (offline): the extracted open part lists the tools it finds, then checks
+        // each protocol against recorded exchanges with no tool and no account (AgentSelfTest) ----
 
         private static int SelfTest()
         {
@@ -263,8 +305,18 @@ namespace WinLiteBridge
                 Console.WriteLine("TOOL " + tool.Id + " name=" + tool.Name + " protocol=" + tool.Protocol +
                     " installed=" + (state.Path != null) + " signedIn=" + state.SignedIn);
             }
-            Console.WriteLine("OK " + AiTools.All.Length + " tools");
-            return 0;
+            Console.WriteLine("TOOLS " + AiTools.All.Length);
+
+            int passed = 0, failed = 0;
+            Action<string, bool, string> check = (name, ok, detail) =>
+            {
+                Console.WriteLine((ok ? "PASS " : "FAIL ") + name + (ok ? "" : ": " + detail));
+                if (ok) { passed++; } else { failed++; }
+            };
+            try { AgentSelfTest.Run(check); }
+            catch (Exception ex) { Console.WriteLine("FAIL self-test threw: " + ex.Message); failed++; }
+            Console.WriteLine("SELFTEST passed=" + passed + " failed=" + failed);
+            return failed == 0 ? 0 : 1;
         }
 
         // ---- JSON-RPC plumbing ----

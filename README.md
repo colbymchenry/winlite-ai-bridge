@@ -37,7 +37,9 @@ bridge knows nothing about the look itself.
 | `initialize` | caller → bridge | Handshake; the bridge replies with its version and capabilities. |
 | `tools/list` | caller → bridge | The AI tools found on the PC, each with whether it is signed in. |
 | `tools/signin` | caller → bridge | Start a tool's own sign-in in a pseudoconsole. |
-| `terminal/input` | caller → bridge | Keystrokes for the running sign-in. |
+| `tools/install` | caller → bridge | Install a missing tool through winget, in a pseudoconsole. |
+| `terminal/input` | caller → bridge | Keystrokes for the running sign-in or install. |
+| `terminal/resize` | caller → bridge | The console was resized. |
 | `terminal/output` | bridge → caller | What the sign-in's screen printed (a notification). |
 | `session/new` | caller → bridge | Start a conversation with a signed-in tool, given the MCP server to offer it. |
 | `session/prompt` | caller → bridge | Send the person's words; the tool's events stream back as `session/update`. |
